@@ -12,6 +12,7 @@ namespace Threading
         static void Main(string[] args)
         {
             Thread thread = new Thread(Foo);
+            System.Diagnostics.Stopwatch watch = new System.Diagnostics.Stopwatch();
             thread.Name = "Foo Thread";
             thread.Start();
         }

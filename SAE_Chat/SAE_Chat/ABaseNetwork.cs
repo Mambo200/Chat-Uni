@@ -10,7 +10,7 @@ namespace SAE_Chat
     /// this is the base network class
     /// It does awesome things.
     /// </summary>
-    abstract class ABaseNetwork
+    abstract public class ABaseNetwork
     {
         public Socket m_OwnSocket;
         public abstract bool Connect();
