@@ -9,19 +9,34 @@ namespace SAE_Chat
     {
         public static readonly int PACKET_SIZE = 1024*10;
         public short Length { get; private set; }
-        public byte[] UsefulData { get; private set; }
+        public int SenderID { get; private set; }
+        public ECommands Command { get; private set; }
+        public string[] Parameter { get; private set; }
         public byte[] Packet { get; private set; }
 
-        private Message(short _length, byte[] _usefulData, byte[] _packet)
+        private Message(short _length, string[] _parameters, byte[] _packet, int _senderID, ECommands _command)
         {
             Length = _length;
-            UsefulData = _usefulData;
+            Parameter = _parameters;
             Packet = _packet;
+            SenderID = _senderID;
+            Command = _command;
         }
 
-        public static Message Encode(byte[] _toSend)
+        public static Message Encode(ECommands _command, int _senderID, params object[] _parameter)
         {
-            if (_toSend.Length > PACKET_SIZE + 2)
+            byte[] toSend;
+            string wholeDataBlock =
+                ((int)_command) + " " + _senderID;
+
+            foreach (object obj in _parameter)
+            {
+                wholeDataBlock += " " + obj;
+            }
+
+            toSend = System.Text.Encoding.UTF8.GetBytes(wholeDataBlock);
+
+            if (toSend.Length > PACKET_SIZE + 2)
             {
 #if DEBUG
                 throw new ArgumentException();
@@ -30,15 +45,15 @@ namespace SAE_Chat
 #endif
             }
             byte[] packet = new byte[PACKET_SIZE];
-            packet[0] = (byte)_toSend.Length;
-            packet[1] = (byte)(_toSend.Length >> 8);
+            packet[0] = (byte)toSend.Length;
+            packet[1] = (byte)(toSend.Length >> 8);
 
-            for (int i = 0; i < _toSend.Length; i++)
+            for (int i = 0; i < toSend.Length; i++)
             {
-                packet[i + 2] = _toSend[i];
+                packet[i + 2] = toSend[i];
             }
 
-            return new Message((short)_toSend.Length, _toSend, packet);
+            return new Message((short)toSend.Length, toSend.Cast<string>().ToArray(), packet, _senderID, _command);
         }
 
         public static Message Decode(byte[] _received)
@@ -53,12 +68,29 @@ namespace SAE_Chat
             }
 
             short Length = (short)(_received[0] + (_received[1] << 8));
-            byte[] UsefulData = new byte[Length];
-            for (int i = 2; i < Length; i++)
+
+            string wholeDataBlock = Encoding.UTF8.GetString(_received, 2, Length);
+
+            string[] split = wholeDataBlock.Split(' ');
+            if (split.Length < 2)
             {
-                UsefulData[i - 2] = _received[i];
+#if DEBUG
+                throw new ArgumentException();
+#else
+                return new Message(-1, null, null);
+#endif
             }
-            return new Message(Length, UsefulData, _received);
+
+            ECommands command = (ECommands)int.Parse(split[0]);
+            int senderID = int.Parse(split[1]);
+
+            string[] parameters = new string[split.Length - 2];
+            if (parameters.Length > 0)
+            {
+                split.CopyTo(parameters, 2);
+            }
+
+            return new Message(Length, parameters, _received, senderID, command);
         }
     }
 }
